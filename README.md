@@ -1,4 +1,4 @@
-# PixivPreview
+# PixivViewer
 
 A web application for browsing and viewing Pixiv content with a clean interface. This app allows you to view new illustrations from your followed artists and your bookmarks in a convenient slideshow format.
 
@@ -19,8 +19,8 @@ A web application for browsing and viewing Pixiv content with a clean interface.
 
 1. Clone the repository:
    ```
-   git clone https://github.com/Slipper322/PixivPreview.git
-   cd PixivPreview
+   git clone https://github.com/Slipper322/PixivViewer.git
+   cd PixivViewer
    ```
 
 2. Install dependencies:
@@ -67,7 +67,7 @@ This application is for personal use only. It uses your Pixiv account credential
 
 ---
 
-# PixivPreview (Русская версия)
+# PixivViewer (Русская версия)
 
 Веб-приложение для просмотра контента Pixiv с удобным интерфейсом. Это приложение позволяет просматривать новые иллюстрации от художников, на которых вы подписаны, а также ваши закладки в удобном формате слайдшоу.
 
@@ -88,8 +88,8 @@ This application is for personal use only. It uses your Pixiv account credential
 
 1. Клонируйте репозиторий:
    ```
-   git clone https://github.com/Slipper322/PixivPreview.git
-   cd PixivPreview
+   git clone https://github.com/Slipper322/PixivViewer.git
+   cd PixivViewer
    ```
 
 2. Установите зависимости:
