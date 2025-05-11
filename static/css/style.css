@@ -1,0 +1,430 @@
+/* pixiv_viewer/static/css/style.css */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #282c34; /* Темный фон для всего body */
+    color: #abb2bf; /* Светло-серый текст по умолчанию */
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* --- Сайдбар с миниатюрами --- */
+.thumbnails-sidebar {
+    width: 250px; /* Ширина сайдбара */
+    min-width: 150px; /* Минимальная ширина */
+    max-width: 600px; /* Максимальная ширина (можно настроить) */
+    height: 100vh; /* Всю высоту */
+    overflow-y: auto;
+    background-color: #21252b; /* Чуть темнее основного фона приложения */
+    border-right: 1px solid #181a1f;
+    padding: 8px;
+    box-sizing: border-box;
+    flex-shrink: 0; /* Чтобы сайдбар не сжимался сам по себе */
+    position: relative; /* Убираем fixed, если resizer будет частью потока flex */
+                        /* Если все же нужен fixed, то resizer тоже должен быть fixed и JS будет сложнее */
+    left: 0;
+    top: 0;
+    z-index: 100; /* Поверх всего, кроме, возможно, модалок */
+}
+
+.thumbnail-item {
+    margin-bottom: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background-color: #2c313a; /* Фон элемента миниатюры */
+    transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+    position: relative; /* Для дочерних абсолютных элементов */
+    overflow: hidden; /* Чтобы img скруглялся */
+    display: flex; /* Для выравнивания img, если он меньше */
+    justify-content: center;
+    align-items: center;
+    min-height: 100px; /* Минимальная высота, чтобы не схлопывался */
+}
+
+.thumbnail-item img {
+    width: 100%; /* Ширина будет 100% от родителя (.thumbnail-item) */
+    height: auto; /* Высота будет подстраиваться пропорционально */
+    aspect-ratio: 1 / 1; /* Для квадратных превью, если исходники квадратные */
+                         /* Или aspect-ratio: 4 / 3; если хотим другой формат */
+                         /* Если исходники не квадратные, а мы хотим квадрат, то object-fit: cover; все еще нужен */
+    object-fit: cover; /* Важно, если aspect-ratio задан, а картинка других пропорций */
+    display: block;
+    background-color: #1c1e22;
+    border-radius: 2px;
+}
+
+.thumbnail-item.active {
+    border-color: #61afef; /* Яркий синий для выделения */
+    background-color: #3a3f4b;
+}
+
+.thumbnail-item:not(.active):hover {
+    border-color: #4a505c;
+    background-color: #313640;
+}
+
+/* Индикаторы на миниатюре */
+.thumb-progress-indicator,
+.thumb-page-counter {
+    position: absolute;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: bold;
+    color: white;
+    background-color: rgba(24, 26, 31, 0.75); /* Темный полупрозрачный фон */
+    pointer-events: none; /* Чтобы не мешали клику на миниатюру */
+}
+
+.thumb-progress-indicator {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%; /* Для круглого фона */
+    display: none; /* Управляется JS */
+    align-items: center; /* Для центрирования содержимого */
+    justify-content: center; /* Для центрирования содержимого */
+}
+
+.thumb-progress-indicator .circular-loader { /* Сам SVG спиннер */
+    display: none; /* Показывается JS */
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-left-color: #61afef; /* Цвет активной части */
+    animation: loader-spin 0.8s infinite linear;
+    border-radius: 50%;
+    width: 24px; /* Размер спиннера */
+    height: 24px;
+    box-sizing: border-box;
+}
+
+.thumb-progress-indicator .error-icon {
+    display: none; /* Показывается JS */
+    color: #e06c75; /* Красный для ошибки */
+    font-size: 18px;
+}
+
+.thumb-page-counter {
+    top: 4px;
+    right: 4px;
+    border-radius: 6px; /* Более круглый */
+    padding: 1px 6px;
+    display: none; /* Управляется JS */
+}
+
+/* --- Контейнер просмотра основного изображения --- */
+.image-viewer-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px; /* Общие отступы */
+    box-sizing: border-box;
+    height: 100vh;
+    overflow: hidden;
+    /* margin-left: 180px; Убираем, так как ширина сайдбара будет динамической */
+    position: relative; /* Для оверлея */
+}
+
+.image-viewer {
+    position: relative; /* Для спиннера */
+    width: 100%;
+    flex-grow: 1; /* Занимает доступную высоту */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 5px; /* Небольшой отступ до оверлея */
+}
+
+.image-viewer img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px; /* Скругление для основного изображения */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); /* Тень для глубины */
+}
+
+.image-loader-spinner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    display: none;
+}
+.image-loader-spinner .spinner {
+    border: 5px solid #3a3f4b; /* Фон спиннера */
+    border-top: 5px solid #61afef; /* Цвет активной части */
+    border-radius: 50%;
+    width: 50px; height: 50px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes loader-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } /* Для миниатюр */
+
+
+/* --- Оверлей с информацией и управлением --- */
+.viewer-overlay {
+    position: absolute; /* Позиционируем относительно image-viewer-container */
+    bottom: 0;
+    left: 0px;/* Убираем, если image-viewer-container больше не имеет margin-left */
+    right: 0;   /* Растягиваем по оставшейся ширине */
+    padding: 10px 15px; /* Уменьшены вертикальные отступы */
+    box-sizing: border-box;
+    background: linear-gradient(to top, rgba(33, 37, 43, 0.9) 0%, rgba(33, 37, 43, 0.7) 50%, rgba(33, 37, 43, 0) 100%);
+    color: #abb2bf;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 20;
+    pointer-events: none;
+}
+.sidebar-resizer {
+    width: 5px; /* Ширина полосы для перетаскивания */
+    background-color: #3a3f4b; /* Цвет разделителя */
+    cursor: col-resize; /* Курсор для изменения размера по горизонтали */
+    height: 100vh;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer.active { /* Класс для активного состояния при перетаскивании */
+    background-color: #61afef; /* Ярче при наведении или перетаскивании */
+}
+.info-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 80%; /* Ограничение ширины текста */
+    margin-bottom: 5px;
+}
+.info-text, #pageInfo { /* Бывший #imageInfoText и #pageInfo */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    font-size: 0.85em;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#pageInfo { margin-bottom: 5px; }
+.info-text a { color: #61afef; text-decoration: none; }
+.info-text a:hover { text-decoration: underline; }
+
+
+.viewer-controls {
+    pointer-events: auto;
+    display: flex;
+    gap: 12px; /* Пространство между кнопками */
+}
+.controls button {
+    padding: 0; /* Убираем внутренний отступ, т.к. SVG сам задает размер */
+    width: 40px;  /* Фиксированный размер для круглых кнопок */
+    height: 40px;
+    background-color: rgba(44, 49, 58, 0.75);
+    color: #abb2bf;
+    border: 1px solid rgba(171, 178, 191, 0.2);
+    border-radius: 50%; /* Круглые кнопки */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.controls button:hover {
+    background-color: rgba(58, 63, 74, 0.9);
+    border-color: rgba(171, 178, 191, 0.4);
+}
+.controls button svg {
+    width: 20px; height: 20px;
+    stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
+    fill: none; /* По умолчанию SVG не залиты */
+}
+.hidden { display: none !important; }
+
+/* Кнопка закладки */
+#bookmarkBtn .feather-heart-empty { display: block; } /* block для лучшего контроля */
+#bookmarkBtn .feather-heart-filled { display: none; }
+#bookmarkBtn.bookmarked .feather-heart-empty { display: none; }
+#bookmarkBtn.bookmarked .feather-heart-filled { display: block; fill: #e06c75; stroke: #e06c75; } /* Красный для закладки */
+
+/* Кнопка информации (рядом с правым краем экрана) */
+.floating-action-button { /* Общий класс для плавающих кнопок */
+    position: fixed;
+    background-color: rgba(44, 49, 58, 0.85);
+    border: 1px solid rgba(171, 178, 191, 0.25);
+    color: #abb2bf;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 110;
+    pointer-events: auto;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.floating-action-button:hover {
+    background-color: #3a3f4b;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.floating-action-button svg {
+    width: 30px; height: 30px; fill: none; stroke: currentColor;
+}
+
+#infoToggleBtn { 
+    bottom: 130px;
+    right: 20px;
+}
+
+#modeToggleBtn { 
+    bottom: 20px; 
+    right: 20px;
+}
+#searchIqdbBtn{
+    bottom: 75px; 
+    right: 20px;
+}
+/* Стили для иконок режима */
+#modeToggleBtn .mode-icon { display: none; } /* Все иконки режимов скрыты по умолчанию */
+/* JS будет добавлять класс к #modeToggleBtn, чтобы показать нужную иконку */
+#modeToggleBtn.view-new-illust .mode-new-illust { display: block; }
+/* #modeToggleBtn.view-new-illust .mode-user-bookmarks { display: none; } */ /* Not strictly needed if .hidden is toggled by JS */
+#modeToggleBtn.view-user-bookmarks .mode-user-bookmarks { display: block; }
+/* #modeToggleBtn.view-user-bookmarks .mode-new-illust { display: none; } */ /* Not strictly needed if .hidden is toggled by JS */
+
+/* Панель информации (замена модального окна) */
+/* Стили для кнопок действий в инфо-панели, если они туда добавляются */
+/* .info-panel-actions { margin-top: 15px; display: flex; gap: 10px; } */
+.info-panel {
+    position: fixed;
+    /* Позиционирование будет управляться JS относительно кнопки infoToggleBtn */
+    /* Примерные начальные значения, если кнопка внизу справа: */
+    /* bottom: 70px; */ /* Чуть выше кнопки */
+    /* right: 20px; */  /* На одном уровне с кнопкой по горизонтали */
+    
+    width: 300px; /* Ширина панели */
+    max-height: 400px; /* Максимальная высота, если контента много */
+    overflow-y: auto;
+    
+    background-color: #2c313a; /* Такой же, как у модалки или сайдбара */
+    color: #abb2bf;
+    border: 1px solid #181a1f;
+    border-radius: 6px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    padding: 15px;
+    z-index: 150; /* Высокий z-index, но ниже возможных "настоящих" модалок */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px); /* Начальное смещение для анимации */
+    transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.info-panel.visible { /* Класс для показа панели */
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.info-panel.hidden { /* Убедимся, что класс hidden работает */
+    display: none; /* Можно и так, если не нужна анимация скрытия */
+    /* Или оставить opacity/visibility для анимации */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+}
+
+
+.info-panel-content h3 { margin-top: 0; border-bottom: 1px solid #3a3f4b; padding-bottom: 8px; color: #e5c07b; font-size: 1.1em; }
+.info-panel-content p { margin: 8px 0; line-height: 1.5; font-size: 0.9em; }
+.info-panel-content a { color: #61afef; text-decoration: none; }
+.info-panel-content a:hover { text-decoration: underline; }
+.info-panel .tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.info-panel .tags-container .tag {
+    background-color: #3a3f4b; padding: 3px 7px;
+    border-radius: 12px; font-size: 0.75em; color: #98c379;
+}
+.info-panel-content .copyable:hover {
+        cursor: pointer;
+        text-decoration: underline;
+        background-color: rgba(152, 195, 121, 0.1); /* Light green indication for copyable */
+    }
+    .copied-feedback { outline: 1px solid #98c379; border-radius: 3px; }
+
+/* Анимация точек для текста загрузки */
+#imageInfoText.loading-text::after { /* Используем переименованный ID */
+    content: '...'; display: inline-block;
+    position: relative; left: 2px;
+    animation: loading-dots 1.4s infinite steps(4, end);
+}
+@keyframes loading-dots {
+  0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: '...';}
+}
+/* --- Bookmark Animation --- */
+.bookmark-animation-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent background */
+    z-index: 1000; /* Above everything */
+    pointer-events: none; /* Allow clicks through if nothing is animated */
+}
+
+.bookmark-animation-icon {
+    width: 128px; /* Large icon */
+    height: 128px;
+    opacity: 0;
+    transform: scale(0.5);
+}
+.bookmark-animation-icon .heart-path { /* Common path class */
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.bookmark-animation-icon.animate-add {
+    animation: animate-add-bookmark 0.8s ease-out forwards;
+}
+.bookmark-animation-icon.animate-add .heart-path {
+    fill: #e06c75; /* Pixiv red */
+    stroke: #c05c65;
+}
+
+.bookmark-animation-icon.animate-remove {
+    animation: animate-remove-bookmark 0.8s ease-out forwards;
+}
+.bookmark-animation-icon.animate-remove .heart-path {
+    fill: #abb2bf; /* Grey or light color for broken */
+    stroke: #888c93;
+}
+
+@keyframes animate-add-bookmark {
+    0% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 1; transform: scale(1.2); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes animate-remove-bookmark {
+    0% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.2) rotate(-5deg); } /* Slight tilt for broken effect */
+    100% { opacity: 0; transform: scale(1) rotate(10deg); }
+}
