@@ -8,11 +8,13 @@
 </head>
 <body>
     <div class="container">
-        <!-- Сайдбар для миниатюр -->
+        <!-- Сайдбар для миниатюр иллюстраций -->
         <div class="thumbnails-sidebar" id="thumbnailsSidebar">
-            <!-- Миниатюры будут динамически добавлены здесь -->
+            <!-- Миниатюры будут динамически добавлены сюда JavaScript'ом -->
         </div>
-        <div class="sidebar-resizer" id="sidebarResizer"></div> 
+        <!-- Разделитель для изменения ширины сайдбара -->
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+        
         <!-- Основной контейнер для просмотра изображений -->
         <div class="image-viewer-container">
             <div class="image-viewer">
@@ -23,11 +25,10 @@
                 </div>
             </div>
             
-            <!-- Оверлей с информацией и кнопками управления -->
+            <!-- Оверлей с информацией и кнопками управления поверх изображения -->
             <div class="viewer-overlay">
                 <div class="info-bar">
                     <div id="imageInfoText" class="info-text">Загрузка...</div>
-                    <!-- Кнопка информации будет позиционироваться отдельно -->
                 </div>
                 <div id="pageInfo" class="info"></div>
                 <div class="viewer-controls controls">
@@ -35,6 +36,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                     </button>
                     <button id="bookmarkBtn" title="В закладки (F)">
+                        <!-- SVG для пустого и заполненного сердца для кнопки закладки -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-heart-empty"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-heart-filled"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                     </button>
@@ -52,22 +54,21 @@
         </div>
     </div>
     
-    <!-- Кнопка информации, позиционируется фиксированно -->
-    <button id="infoToggleBtn" title="Информация об иллюстрации" class="hidden floating-action-button">
+    <!-- Плавающие кнопки действий (FABs) -->
+    <button id="infoToggleBtn" title="Информация об иллюстрации (I)" class="hidden floating-action-button">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="8"></line></svg>
     </button>
-    
-    <button id="searchIqdbBtn" class="hidden floating-action-button" title="Искать на IQDB (Q)" > <!-- Position above others -->
+    <button id="searchIqdbBtn" class="hidden floating-action-button" title="Искать на IQDB (Q)">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search-iqdb"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><text x="7" y="14" font-size="7" fill="currentColor">IQ</text></svg>
     </button>
     <button id="modeToggleBtn" title="Переключить режим (Новые/Закладки)" class="floating-action-button">
-        <!-- Иконка для "Новые от подписок" (например, группа людей) -->
+        <!-- Иконки для режимов просмотра, видимость управляется JS -->
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-users mode-icon mode-new-illust"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        <!-- Иконка для "Мои закладки" (например, одна закладка/сердце) -->
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="feather feather-bookmark mode-icon mode-user-bookmarks hidden"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
     </button>
-    <!-- Панель для информации об иллюстрации (замена модалки) -->
-    <div id="illustInfoPanel" class="info-panel hidden"> <!-- Изменили ID и класс -->
+    
+    <!-- Панель для детальной информации об иллюстрации -->
+    <div id="illustInfoPanel" class="info-panel hidden">
         <div class="info-panel-content">
             <h3 id="panelIllustTitle">Название иллюстрации</h3>
             <p><strong>Автор:</strong> <a id="panelIllustAuthor" href="#" target="_blank">Имя автора</a></p>
@@ -75,19 +76,18 @@
             <p><strong>Пост на Pixiv:</strong> <a id="panelIllustPixivLink" href="#" target="_blank" title="Копировать ссылку (Ctrl+Click чтобы открыть)">Открыть</a></p>
             <p><strong>Теги:</strong></p>
             <div id="panelIllustTags" class="tags-container">
-                <!-- Теги -->
+                <!-- Теги будут добавлены сюда JavaScript'ом -->
             </div>
         </div>
-
-        <!--<button id="closeInfoPanelBtn" class="close-panel-btn">×</button>-->
     </div>
-    <!-- Bookmark Animation Overlay -->
+    
+    <!-- Оверлей и иконка для анимации добавления/удаления закладки -->
     <div id="bookmarkAnimationOverlay" class="bookmark-animation-overlay hidden">
         <svg id="bookmarkAnimationIcon" class="bookmark-animation-icon" viewBox="0 0 24 24">
-            <!-- Path will be set by JS or have multiple paths toggled -->
             <path class="heart-path" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
     </div>
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
