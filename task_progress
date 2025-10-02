@@ -1,0 +1,7 @@
+- [x] Update CSS for carousel items to use square dimensions based on viewer height
+- [x] Add placeholder divs for edge centering in initCarouselNavigation
+- [x] Modify displayCurrentIllustAndPage to instantiate carousel with placeholders
+- [x] Update navigation and scroll logic to handle placeholders
+- [x] Fix scroll debounce with proper debouncing
+- [x] Add keyboard navigation for carousel (left/right keys)
+- [x] Optimize lazy loading initialization

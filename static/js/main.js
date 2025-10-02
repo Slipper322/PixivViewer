@@ -1,12 +1,15 @@
 // DOM Elements
-const currentImageEl = document.getElementById('currentImage');
+let currentImageEl = document.getElementById('currentImage');
 const imageLoaderSpinnerEl = document.getElementById('imageLoaderSpinner');
+const illustImagesContainerEl = document.querySelector('.illust-images-container');
 const thumbnailsSidebarEl = document.getElementById('thumbnailsSidebar');
 const imageInfoTextEl = document.getElementById('imageInfoText');
 const pageInfoEl = document.getElementById('pageInfo');
 // Buttons
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
+const carouselPrevBtn = document.getElementById('carousel-prev-btn');
+const carouselNextBtn = document.getElementById('carousel-next-btn');
 const bookmarkBtn = document.getElementById('bookmarkBtn');
 const openOriginalBtn = document.getElementById('openOriginalBtn');
 const downloadOriginalBtn = document.getElementById('downloadOriginalBtn'); // New
@@ -35,6 +38,8 @@ let globalCsrfToken = '';
 let hotkeyCooldown = false;
 const HOTKEY_COOLDOWN_MS = 200;
 
+let currentCarouselIndex = 0; // For carousel navigation
+
 let currentViewMode = 'new_illust'; // 'new_illust' или 'user_bookmarks'
 let currentOffsetForBookmarks = 0; // Для пагинации закладок
 const BOOKMARKS_PAGE_LIMIT = 48; // Должно совпадать с BOOKMARKS_API_LIMIT в app.py
@@ -57,6 +62,8 @@ function initUI() {
     downloadOriginalBtn.classList.add('hidden');
     searchIqdbBtn.classList.add('hidden');
     infoToggleBtn.classList.add('hidden');
+    if (carouselPrevBtn) carouselPrevBtn.classList.add('hidden');
+    if (carouselNextBtn) carouselNextBtn.classList.add('hidden');
     thumbnailsSidebarEl.innerHTML = '';
     hideImageSpinner();
     hideInfoPanel(); // Используем новую функцию для скрытия панели
@@ -133,10 +140,9 @@ function processRawIllustList(rawIllusts) {
             width: meta.width,
             height: meta.height,
             pages_data: [],
-            current_page_in_illust: 0,
             pages_data_loading_status: 'idle',
             // detail_info_fetched будет устанавливаться в true только после успешного вызова fetchAndUpdateDetailedInfo
-            detail_info_fetched: initialDetailsFetched, 
+            detail_info_fetched: initialDetailsFetched,
             detail_info_fetched_pending: false,
             author_name: meta.author_name || null,
             author_id: meta.author_id || null,
@@ -210,9 +216,7 @@ function updateThumbnailUI(illustDataItem) {
 
     if (illustDataItem.page_count > 1) {
         pageCounter.style.display = 'block';
-        let currentPageNum = (illustDataItem.id === (illustList[currentIllustListIndex]?.id)) 
-                            ? illustDataItem.current_page_in_illust + 1 : 1;
-        pageCounter.textContent = `${illustDataItem.page_count}`; // Только N
+        pageCounter.textContent = `${illustDataItem.page_count}`;
     } else {
         pageCounter.style.display = 'none';
     }
@@ -395,6 +399,8 @@ async function fetchAndUpdateDetailedInfo(illustDataItem) { // Загружае�
 }
 
 // --- Main Display Function ---
+const MAX_CAROUSEL_IMAGES = 20;
+
 async function displayCurrentIllustAndPage() {
     if (currentIllustListIndex < 0 || currentIllustListIndex >= illustList.length) { initUI(); return; }
     const currentIllust = illustList[currentIllustListIndex];
@@ -412,19 +418,29 @@ async function displayCurrentIllustAndPage() {
         imageInfoTextEl.classList.add('loading-text'); showImageSpinner(); openOriginalBtn.classList.add('hidden');
         downloadOriginalBtn.classList.add('hidden');
         searchIqdbBtn.classList.add('hidden');
+        if (carouselPrevBtn) carouselPrevBtn.classList.add('hidden');
+        if (carouselNextBtn) carouselNextBtn.classList.add('hidden');
         updateBookmarkButtonUI(currentIllust); // Обновляем кнопку на случай, если статус уже известен
         return;
     }
     if (currentIllust.pages_data_loading_status === 'idle' || currentIllust.pages_data_loading_status === 'error') {
+        // Сбрасываем вид
+        illustImagesContainerEl.innerHTML = '<img id="currentImage" src="" alt="Иллюстрация" class="single-image">';
+        currentImageEl = document.getElementById('currentImage'); // Перепривязываем
+        currentImageEl.onload = () => hideImageSpinner();
+        currentImageEl.onerror = () => { hideImageSpinner(); currentImageEl.alt = "Ошибка загрузки изображения"; };
+
         if (currentIllust.preview_url_p0) {
             currentImageEl.src = `/api/image_proxy?image_url=${encodeURIComponent(currentIllust.preview_url_p0)}&illust_id=${encodeURIComponent(currentIllust.id)}`;
             currentImageEl.alt = `Превью: ${currentIllust.title}`;
         } else { currentImageEl.src = ""; currentImageEl.alt = "Загрузка..."; }
         imageInfoTextEl.innerHTML = `<b>${currentIllust.title}</b> (ID: ${currentIllust.id}) <a href="https://www.pixiv.net/artworks/${currentIllust.id}" target="_blank">[P]</a> (Ожидание данных...)`;
         pageInfoEl.textContent = `Иллюстрация ${currentIllustListIndex + 1}/${illustList.length}.`;
-        openOriginalBtn.classList.add('hidden'); 
+        openOriginalBtn.classList.add('hidden');
         downloadOriginalBtn.classList.add('hidden');
         searchIqdbBtn.classList.add('hidden');
+        carouselPrevBtn.classList.add('hidden');
+        carouselNextBtn.classList.add('hidden');
         updateBookmarkButtonUI(currentIllust);
         if(currentIllust.pages_data_loading_status !== 'error') await fetchActualIllustPages(currentIllust);
         if (currentIllust.pages_data_loading_status !== 'loading') await displayCurrentIllustAndPage();
@@ -433,38 +449,219 @@ async function displayCurrentIllustAndPage() {
 
     // Pages data loaded
     hideImageSpinner(); imageInfoTextEl.classList.remove('loading-text');
-    if (currentIllust.pages_data.length > 0) {
-        const pageIdx = Math.max(0, Math.min(currentIllust.current_page_in_illust, currentIllust.pages_data.length - 1));
-        currentIllust.current_page_in_illust = pageIdx;
-        const currentPageData = currentIllust.pages_data[pageIdx];
-        const imageUrlToDisplay = currentPageData.url_master || currentPageData.url_original;
-        let finalImageUrl = imageUrlToDisplay ? `/api/image_proxy?image_url=${encodeURIComponent(imageUrlToDisplay)}&illust_id=${encodeURIComponent(currentIllust.id)}` : "";
-        currentImageEl.alt = currentIllust.title;
-        if (currentImageEl.src !== window.location.origin + finalImageUrl && finalImageUrl) {
-            showImageSpinner(); currentImageEl.src = finalImageUrl;
-        } else if (!finalImageUrl) { currentImageEl.src = ""; hideImageSpinner(); }
-        else { hideImageSpinner(); } // URL не изменился
-        imageInfoTextEl.innerHTML = `<b>${currentIllust.title}</b> (ID: ${currentIllust.id}) <a href="https://www.pixiv.net/artworks/${currentIllust.id}" target="_blank">[P]</a>`;
-        pageInfoEl.textContent = `Иллюстрация ${currentIllustListIndex + 1}/${illustList.length}. Стр. ${pageIdx + 1}/${currentIllust.pages_data.length}.`;
-        openOriginalBtn.classList.toggle('hidden', !currentPageData.url_original);
-        downloadOriginalBtn.classList.toggle('hidden', !currentPageData.url_original);
-        searchIqdbBtn.classList.toggle('hidden', !(currentPageData.url_master || currentPageData.url_original)); // Prefer master, fallback to original for IQDB
-        if(currentPageData.url_original) openOriginalBtn.onclick = () => window.open(`/api/image_proxy?image_url=${encodeURIComponent(currentPageData.url_original)}&illust_id=${encodeURIComponent(currentIllust.id)}`, '_blank');
+
+    // Очищаем контейнер
+    illustImagesContainerEl.innerHTML = '';
+
+    // Используем первую страницу для кнопок действий
+    const firstPageData = currentIllust.pages_data[0];
+    openOriginalBtn.classList.toggle('hidden', !firstPageData.url_original);
+    downloadOriginalBtn.classList.toggle('hidden', !firstPageData.url_original);
+    searchIqdbBtn.classList.toggle('hidden', !(firstPageData.url_master || firstPageData.url_original)); // Prefer master, fallback to original for IQDB
+    if(firstPageData.url_original) openOriginalBtn.onclick = () => window.open(`/api/image_proxy?image_url=${encodeURIComponent(firstPageData.url_original)}&illust_id=${encodeURIComponent(currentIllust.id)}`, '_blank');
+
+        if (currentIllust.page_count === 1) {
+        // Показываем одну картинку
+        const img = document.createElement('img');
+        img.classList.add('single-image');
+        img.src = firstPageData.url_master ? `/api/image_proxy?image_url=${encodeURIComponent(firstPageData.url_master)}&illust_id=${encodeURIComponent(currentIllust.id)}` : '';
+        img.alt = currentIllust.title;
+        illustImagesContainerEl.appendChild(img);
+        currentImageEl = img; // Для совместимости со старым кодом, но возможно не нужно
+        // Скрываем кнопки карусели
+        if (carouselPrevBtn) carouselPrevBtn.classList.add('hidden');
+        if (carouselNextBtn) carouselNextBtn.classList.add('hidden');
     } else {
-        currentImageEl.src = ""; imageInfoTextEl.innerHTML = `<b>${currentIllust.title}</b> (ID: ${currentIllust.id}) <a href="https://www.pixiv.net/artworks/${currentIllust.id}" target="_blank">[P]</a> (Ошибка загрузки страниц)`;
-        pageInfoEl.textContent = `Иллюстрация ${currentIllustListIndex + 1}/${illustList.length}.`; 
-        openOriginalBtn.classList.add('hidden'); 
-        downloadOriginalBtn.classList.add('hidden');
-        searchIqdbBtn.classList.add('hidden');
-        hideImageSpinner();
+        // Создаем карусель
+        const carouselEl = document.createElement('div');
+        carouselEl.classList.add('carousel');
+
+        // Add start placeholder
+        const startPlaceholder = document.createElement('div');
+        startPlaceholder.classList.add('carousel-placeholder');
+        carouselEl.appendChild(startPlaceholder);
+
+        const numImagesToShow = Math.min(currentIllust.page_count, MAX_CAROUSEL_IMAGES);
+        for (let i = 0; i < numImagesToShow; i++) {
+            const pageData = currentIllust.pages_data[i];
+            const img = document.createElement('img');
+            img.classList.add('carousel-image');
+            img.src = pageData.url_master ? `/api/image_proxy?image_url=${encodeURIComponent(pageData.url_master)}&illust_id=${encodeURIComponent(currentIllust.id)}` : '';
+            img.alt = `${currentIllust.title} - Страница ${i + 1}`;
+            img.classList.add('lazy'); // Для lazy-load
+            carouselEl.appendChild(img);
+        }
+
+        // Add end placeholder
+        const endPlaceholder = document.createElement('div');
+        endPlaceholder.classList.add('carousel-placeholder');
+        carouselEl.appendChild(endPlaceholder);
+
+        illustImagesContainerEl.appendChild(carouselEl);
+
+        // Init lazy-load
+        if (window.IntersectionObserver) {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.classList.remove('lazy');
+                        img.classList.add('loaded');
+                        obs.unobserve(img);
+                    }
+                });
+            }, { rootMargin: '50px' });
+            carouselEl.querySelectorAll('.carousel-image.lazy').forEach(img => obs.observe(img));
+        } else {
+            // Fallback: load all
+            carouselEl.querySelectorAll('.carousel-image.lazy').forEach(img => {
+                img.classList.remove('lazy');
+                img.classList.add('loaded');
+            });
+        }
+
+        // Init carousel navigation
+        initCarouselNavigation(carouselEl);
+
+        // Показываем кнопки карусели
+        if (carouselPrevBtn) carouselPrevBtn.classList.remove('hidden');
+        if (carouselNextBtn) carouselNextBtn.classList.remove('hidden'); // Показываем обе кнопки
     }
-    
+
+    imageInfoTextEl.innerHTML = `<b>${currentIllust.title}</b> (ID: ${currentIllust.id}) <a href="https://www.pixiv.net/artworks/${currentIllust.id}" target="_blank">[P]</a>`;
+    pageInfoEl.textContent = `Иллюстрация ${currentIllustListIndex + 1}/${illustList.length}.`;
+
     updateBookmarkButtonUI(currentIllust);
     if (isInfoPanelVisible()) { // Если панель открыта, обновляем ее содержимое
         populateAndShowInfoPanel(currentIllust);
     }
     if (currentIllust.pages_data_loading_status === 'loaded') preloadNextIllusts();
     updateThumbnailUI(currentIllust);
+}
+
+function initCarouselNavigation(carouselEl) {
+    const containerEl = carouselEl.closest('.illust-images-container');
+    const squareSize = containerEl.offsetHeight;
+    const viewportWidth = carouselEl.offsetWidth;
+    const centeringOffset = (viewportWidth - squareSize) / 2;
+
+    // Set sizes for images and placeholders
+    const allItems = carouselEl.querySelectorAll('.carousel-image, .carousel-placeholder');
+    allItems.forEach((item, idx) => {
+        item.style.width = `${squareSize}px`;
+        item.style.height = `${squareSize}px`;
+        if (idx === 0) { // start placeholder
+            // width is already, but no margin needed, it's there
+        } else if (idx === allItems.length - 1) { // end placeholder
+            // width is already
+        } else {
+            // images: set object-fit
+            item.style.display = 'block';
+        }
+    });
+
+    const placeholders = carouselEl.querySelectorAll('.carousel-placeholder');
+    placeholders.forEach(item => {
+        item.style.width = `${centeringOffset}px`;
+        item.style.height = `${squareSize}px`;
+        item.style.flexShrink = '0';
+        item.style.flexGrow = '0';
+        item.style.visibility = 'hidden'; // Hide visually but occupy space
+    });
+
+    // Reset carousel index on new carousel (assuming starts at 0)
+    currentCarouselIndex = 0;
+    scrollToCarousel(carouselEl, currentCarouselIndex); // Center the first image
+
+        // Update index on scroll (debounced via rAF)
+        let scrollRAFTimer = null;
+        carouselEl.addEventListener('scroll', () => {
+            if (scrollRAFTimer) return;
+            scrollRAFTimer = requestAnimationFrame(() => {
+                const images = carouselEl.querySelectorAll('.carousel-image');
+                if (images.length <= 1) return;
+                const viewportCenter = carouselEl.offsetWidth / 2 + carouselEl.scrollLeft;
+                let closestIndex = 0;
+                let minDiff = Number.MAX_VALUE;
+                images.forEach((img, i) => {
+                    const imgCenter = img.offsetLeft + img.offsetWidth / 2;
+                    const diff = Math.abs(imgCenter - viewportCenter);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIndex = i;
+                    }
+                });
+                currentCarouselIndex = closestIndex;
+                scrollRAFTimer = null;
+            });
+        });
+
+    // Wheel scroll
+    carouselEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+            // Ignore vertical scroll, use horizontal
+            carouselEl.scrollLeft += e.deltaY; // Treat vertical wheel as horizontal
+        } else {
+            carouselEl.scrollLeft += e.deltaX;
+        }
+    }, { passive: false });
+
+    // Drag/swipe fixed
+    let isDragging = false;
+    let startClientX;
+    let startScrollLeft;
+    carouselEl.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startClientX = e.clientX;
+        startScrollLeft = carouselEl.scrollLeft;
+        carouselEl.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+    carouselEl.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - startClientX;
+        carouselEl.scrollLeft = startScrollLeft - deltaX;
+        e.preventDefault();
+    });
+    carouselEl.addEventListener('mouseup', () => {
+        isDragging = false;
+        carouselEl.style.cursor = '';
+    });
+    carouselEl.addEventListener('mouseleave', () => {
+        isDragging = false;
+        carouselEl.style.cursor = '';
+    });
+
+    // Buttons
+    if (carouselPrevBtn) {
+        carouselPrevBtn.onclick = () => {
+            currentCarouselIndex = Math.max(0, currentCarouselIndex - 1);
+            scrollToCarousel(carouselEl, currentCarouselIndex);
+        };
+    }
+    if (carouselNextBtn) {
+        carouselNextBtn.onclick = () => {
+            const maxIndex = carouselEl.querySelectorAll('.carousel-image').length - 1;
+            currentCarouselIndex = Math.min(maxIndex, currentCarouselIndex + 1);
+            scrollToCarousel(carouselEl, currentCarouselIndex);
+        };
+    }
+}
+
+function scrollToCarousel(carouselEl, currentCarouselIndex) {
+    const images = carouselEl.querySelectorAll('.carousel-image');
+    if (currentCarouselIndex < 0 || currentCarouselIndex >= images.length) return;
+    const item = images[currentCarouselIndex];
+    const itemLeft = item.offsetLeft;
+    const itemCenter = itemLeft + item.offsetWidth / 2;
+    const viewportWidth = carouselEl.offsetWidth;
+    const scrollLeft = itemCenter - viewportWidth / 2;
+    carouselEl.scrollTo({
+        left: scrollLeft,
+        behavior: 'smooth'
+    });
 }
 
 // --- Preloading, Panel Logic, Event Listeners, Navigation, Hotkeys ---
@@ -631,16 +828,11 @@ async function navigateIllust(direction) { // direction: -1 for prev, 1 for next
     let currentIllust = illustList[currentIllustListIndex];
     if (!currentIllust) return; // На всякий случай
 
+    // Теперь навигация только между постами
     if (direction === 1) { // Вперед
-        if (currentIllust.pages_data_loading_status === 'loaded' && currentIllust.current_page_in_illust < currentIllust.pages_data.length - 1) {
-            currentIllust.current_page_in_illust++;
-            await displayCurrentIllustAndPage();
-        } else if (currentIllustListIndex < illustList.length - 1) { // Следующая иллюстрация в списке
+        if (currentIllustListIndex < illustList.length - 1) { // Следующая иллюстрация в списке
             currentIllustListIndex++;
-            if (illustList[currentIllustListIndex]) { // Проверяем, что следующая иллюстрация существует
-                illustList[currentIllustListIndex].current_page_in_illust = 0;
-                await displayCurrentIllustAndPage();
-            }
+            await displayCurrentIllustAndPage();
         } else if (!isLoadingIllustList) { // Конец списка, пытаемся загрузить еще
             if (currentViewMode === 'new_illust') {
                 currentPixivApiPageForList++;
@@ -655,21 +847,11 @@ async function navigateIllust(direction) { // direction: -1 for prev, 1 for next
             // Если нет, сообщение об этом будет в fetchIllustListFromBackend.
         }
     } else if (direction === -1) { // Назад
-        if (currentIllust.pages_data_loading_status === 'loaded' && currentIllust.current_page_in_illust > 0) {
-            currentIllust.current_page_in_illust--;
-            await displayCurrentIllustAndPage();
-        } else if (currentIllustListIndex > 0) { // Предыдущая иллюстрация в списке
+        if (currentIllustListIndex > 0) { // Предыдущая иллюстрация в списке
             currentIllustListIndex--;
-            currentIllust = illustList[currentIllustListIndex]; // Обновляем currentIllust
-            if (currentIllust) { // Проверяем, что предыдущая иллюстрация существует
-                // Устанавливаем на последнюю страницу предыдущей иллюстрации
-                currentIllust.current_page_in_illust = (currentIllust.pages_data_loading_status === 'loaded' && currentIllust.pages_data.length > 0) 
-                                                    ? currentIllust.pages_data.length - 1 
-                                                    : 0;
-                await displayCurrentIllustAndPage();
-            }
+            await displayCurrentIllustAndPage();
         }
-        // Если это первая иллюстрация и первая страница, ничего не делаем
+        // Если это первая иллюстрация, ничего не делаем
     }
 }
 async function toggleBookmark() {
@@ -804,50 +986,73 @@ function triggerBookmarkAnimation(isAdding) {
 function handleOpenOriginal() { if (hotkeyCooldown) return; setHotkeyCooldown(); if (currentIllustListIndex < 0 || !illustList[currentIllustListIndex] || openOriginalBtn.classList.contains('hidden')) return; openOriginalBtn.click(); }
 function setHotkeyCooldown() { hotkeyCooldown = true; setTimeout(() => { hotkeyCooldown = false; }, HOTKEY_COOLDOWN_MS); }
 
+function navigateCarousel(direction) {
+    if (!carouselPrevBtn || carouselPrevBtn.classList.contains('hidden')) return; // Carousel not active
+    const carouselEl = document.querySelector('.carousel');
+    if (!carouselEl) return;
+    if (direction === -1) {
+        carouselPrevBtn.click();
+    } else if (direction === 1) {
+        carouselNextBtn.click();
+    }
+}
+
 function handleHotkeys(event) {
-    if (event.ctrlKey || event.metaKey || event.altKey) return; // Ignore if modifiers are pressed (except for specific combinations if needed later)
-    const keyActionMap = { 
-        "ArrowLeft": () => navigateIllust(-1), 
-        "ArrowRight": () => navigateIllust(1), 
-        "f": toggleBookmark, 
-        "F": toggleBookmark, 
-        "а": toggleBookmark, 
-        "А": toggleBookmark, 
-        "o": handleOpenOriginal, 
-        "O": handleOpenOriginal, 
-        "щ": handleOpenOriginal, 
+    const activeElement = document.activeElement;
+    const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
+    if (event.ctrlKey || event.metaKey || event.altKey || isInputFocused) return; // Ignore if modifiers or input focused
+
+    // Carousel navigation with Shift + Arrow
+    if (event.shiftKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        navigateCarousel(-1);
+        return;
+    } else if (event.shiftKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        navigateCarousel(1);
+        return;
+    }
+
+    const keyActionMap = {
+        "ArrowLeft": () => navigateIllust(-1),
+        "ArrowRight": () => navigateIllust(1),
+        "f": toggleBookmark,
+        "F": toggleBookmark,
+        "а": toggleBookmark,
+        "А": toggleBookmark,
+        "o": handleOpenOriginal,
+        "O": handleOpenOriginal,
+        "щ": handleOpenOriginal,
         "Щ": handleOpenOriginal,
-        "d": handleDownloadOriginal, // New
+        "d": handleDownloadOriginal,
         "D": handleDownloadOriginal,
-        "в": handleDownloadOriginal, // Cyrillic 'v' for download
+        "в": handleDownloadOriginal, // Cyrillic 'v'
         "В": handleDownloadOriginal,
-        "q": handleSearchIqdb,       // New
+        "q": handleSearchIqdb,
         "Q": handleSearchIqdb,
-        "й": handleSearchIqdb,       // Cyrillic 'q' (й)
+        "й": handleSearchIqdb, // Cyrillic 'q'
         "Й": handleSearchIqdb,
-        "i": () => infoToggleBtn.click(), 
+        "i": () => infoToggleBtn.click(),
         "ш": () => infoToggleBtn.click(),
         "Ш": () => infoToggleBtn.click(),
         "I": () => infoToggleBtn.click() };
-            
-    // Prevent default browser actions for keys we handle (e.g. arrows scrolling page)
-    // if text input is not focused
-    const activeElement = document.activeElement;
-    const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
-    if (!isInputFocused && keyActionMap[event.key]) { event.preventDefault(); keyActionMap[event.key](); }
+
+    if (keyActionMap[event.key]) {
+        event.preventDefault(); // Prevent defaults for handled keys
+        keyActionMap[event.key]();
+    }
 }
 function handleDownloadOriginal() {
     if (hotkeyCooldown) return; setHotkeyCooldown();
     const currentIllust = illustList[currentIllustListIndex];
     if (!currentIllust || downloadOriginalBtn.classList.contains('hidden')) return;
-    const pageIdx = currentIllust.current_page_in_illust;
-    const originalUrl = currentIllust.pages_data?.[pageIdx]?.url_original;
+    const originalUrl = currentIllust.pages_data?.[0]?.url_original; // Always use first page
     if (originalUrl) {
         const downloadUrl = `/api/image_proxy?image_url=${encodeURIComponent(originalUrl)}&illust_id=${encodeURIComponent(currentIllust.id)}&download=true`;
         const a = document.createElement('a');
         a.href = downloadUrl;
         // Filename is handled by Content-Disposition from server, but can be set here as a fallback
-        // a.download = originalUrl.substring(originalUrl.lastIndexOf('/') + 1); 
+        // a.download = originalUrl.substring(originalUrl.lastIndexOf('/') + 1);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -857,8 +1062,7 @@ function handleSearchIqdb() {
     if (hotkeyCooldown) return; setHotkeyCooldown();
     const currentIllust = illustList[currentIllustListIndex];
     if (!currentIllust || searchIqdbBtn.classList.contains('hidden')) return;
-    const pageIdx = currentIllust.current_page_in_illust;
-    const masterUrl = currentIllust.pages_data?.[pageIdx]?.url_master || currentIllust.pages_data?.[pageIdx]?.url_original; // Prefer master
+    const masterUrl = currentIllust.pages_data?.[0]?.url_master || currentIllust.pages_data?.[0]?.url_original; // Always use first page
     if (masterUrl) {
         const iqdbSearchUrl = `http://local.slipper:3255/?url=${encodeURIComponent(masterUrl)}`;
         window.open(iqdbSearchUrl, '_blank');

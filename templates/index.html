@@ -17,13 +17,19 @@
         <div class="sidebar-resizer" id="sidebarResizer"></div> 
         <!-- Основной контейнер для просмотра изображений -->
         <div class="image-viewer-container">
-            <div class="image-viewer">
-                <img id="currentImage" src="" alt="Иллюстрация">
+        <div class="image-viewer">
+                <div class="illust-images-container">
+                    <!-- Один img или карусель изображений -->
+                    <img id="currentImage" src="" alt="Иллюстрация" class="single-image">
+                </div>
                 <!-- Спиннер загрузки для основного изображения -->
                 <div class="image-loader-spinner" id="imageLoaderSpinner">
-                    <div class="spinner"></div> 
+                    <div class="spinner"></div>
                 </div>
-            </div>
+                <!-- Кнопки навигации карусели (скрыты по умолчанию) -->
+                <button id="carousel-prev-btn" class="carousel-nav-btn carousel-prev-btn hidden" aria-label="Предыдущее изображение в карусели">‹</button>
+                <button id="carousel-next-btn" class="carousel-nav-btn carousel-next-btn hidden" aria-label="Следующее изображение в карусели">›</button>
+        </div>
             
             <!-- Оверлей с информацией и кнопками управления -->
             <div class="viewer-overlay">
