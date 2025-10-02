@@ -31,5 +31,19 @@ build/
 # OS specific files
 .DS_Store
 Thumbs.db
+*.lnk
+
+# Project specific files
 TODO.md
+author_aliases.json
+code.txt
 pixiv_slideshow.py
+start_app.bat
+start.au3
+start.exe
+task_progress
+CONTEXT.md
+
+# User generated files and temp
+task_progress
+logs/
